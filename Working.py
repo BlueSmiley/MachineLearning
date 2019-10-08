@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 import os.path
@@ -5,8 +6,10 @@ import matplotlib.pyplot as plt
 from sklearn import datasets, linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import VarianceThreshold
 from math import sqrt
 
 def main():
@@ -19,38 +22,62 @@ def main():
     # create a numpy array with the numeric values for input into scikit-learn
     #data = df.as_matrix()
 
-    df = clean_data(df)
+    (df,ohe) = clean_data(df)
+    #sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
     
+    #testing_file = "Testing.csv"
+    #df.to_csv(testing_file, index=False)
     
     # remove nans in column
     # df = df[np.isfinite(df['Year of Record'])]
     
     
     #msk = np.random.rand(len(df)) < 0.8
-     
     train, test = train_test_split(df, test_size=0.2)
     
+    X = df.iloc[:,:-1]
+    y = df.iloc[:,-1]
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+    #sel.fit_transform(X)
+    #print(np.shape(X))
+    
     train_y = train.iloc[:,-1]
-    train_X = train.iloc[:,:-1]
+    train_X = scaler.transform(train.iloc[:,:-1])
     test_y = test.iloc[:,-1]
-    test_X = test.iloc[:,:-1]
+    test_X = scaler.transform(test.iloc[:,:-1])
+    print(np.shape(test_X))
     #print(np.shape(X))
     #print(np.shape(y))
 
-    regr = linear_model.RidgeCV(alphas=[1e-10,0.1, 1.0, 10.0,20], cv=5,scoring='neg_mean_squared_error',normalize = True)
+    regr = linear_model.LassoCV(cv=2)
+    
 
     # Train the model using the training sets
-    regr.fit(train_X, train_y)
-
+    regr.fit(X, y)
     
     
     
     # Make predictions using the testing set
     pred = regr.predict(test_X)
     
+    # The coefficients
+    print('Coefficients: \n', regr.coef_)
+    # The mean squared error
+    print("Root Mean squared error: %.2f"
+        %  sqrt(mean_squared_error(test_y, pred)))
+    # Explained variance score: 1 is perfect prediction
+    print('Variance score: %.2f' % r2_score(test_y, pred))
+    print('Internal score: %.2f' % regr.score(X, y))
+    
+    
     actual_file = "tcd ml 2019-20 income prediction test (without labels).csv"
     finalData = pd.read_csv(actual_file, header = 0)
-    finalData = cleanFinalData(finalData)
+    finalData = cleanFinalData(finalData, ohe)
+    finalData = scaler.transform(finalData)
+    
+    #testing_file2 = "Testing2.csv"
+    #finalData.to_csv(testing_file2, index=False)
     
     results = regr.predict(finalData)
     output_file = "tcd ml 2019-20 income prediction submission file.csv"
@@ -62,14 +89,7 @@ def main():
 
     #plotGender(df)
     
-    # The coefficients
-    print('Coefficients: \n', regr.coef_)
-    # The mean squared error
-    print("Root Mean squared error: %.2f"
-        %  sqrt(mean_squared_error(test_y, pred)))
-    # Explained variance score: 1 is perfect prediction
-    print('Variance score: %.2f' % r2_score(test_y, pred))
-    
+    print('Internal score: %.2f' % regr.score(X, y))
     # Plot outputs
     # plt.scatter(X.iloc[:,-1], y,  color='black')
     # plt.plot(X.iloc[:,-1], pred, color='blue', linewidth=3)
@@ -81,10 +101,74 @@ def main():
     
     
     
-def cleanFinalData(data):
+def cleanFinalData(data, ohe):
     
     # too messy and unrestrained for me to work with rn
-    data = data.drop('Profession', 1)
+    #data = data.drop('Profession', 1)
+    # Has no relation to data
+    data = data.drop('Instance', 1)
+    
+    # Constrain Hair color
+    mapping = {"Black": 1, "Blond": 2, "Brown": 3}
+    data["Hair Color"] = data["Hair Color"].map(mapping)
+    # Four buckets
+    data["Hair Color"] = data["Hair Color"].fillna(4)
+    
+    # Constrain Degree
+    mapping = {"Bachelor": 1, "Master": 2, "No": 3}
+    data["University Degree"] = data["University Degree"].map(mapping)
+    # Four buckets
+    data["University Degree"] = data["University Degree"].fillna(4)
+    
+    # constrain Gender
+    mapping = {"male": 1, "female": 2}
+    data["Gender"] = data["Gender"].map(mapping)
+    # Four buckets
+    data["Gender"] = data["Gender"].fillna(3)
+    
+    data["Profession"] = data["Profession"].fillna("Unemployed")
+    
+    # drop nans
+    #data = data.dropna()
+    
+    # put error value for any remaining nas
+    data = data.fillna(-1)
+    
+    #data["Country"] = pd.get_dummies(data["Country"])
+    
+    feature_arr = ohe.transform(data[["Hair Color",
+        "Wears Glasses","University Degree","Country","Gender","Profession"]]).toarray()
+
+    names = ohe.get_feature_names(["Hair Color",
+        "Wears Glasses","University Degree","Country","Gender","Profession"])
+        
+    df2 = pd.DataFrame(feature_arr, columns = names)
+    #print(np.shape(df2))
+    #print(np.shape(data[["Year of Record","Age","Size of City","Body Height [cm]"]]))
+    
+    #data = np.append(feature_arr, 
+    #    data[["Year of Record","Age","Size of City","Body Height [cm]"]],axis = 1)
+    #data = pd.DataFrame(data)
+    
+    data2 = pd.concat([df2.reset_index(drop=True),
+    data[["Year of Record","Age","Size of City","Body Height [cm]"]].reset_index(drop=True)], axis=1)
+    
+    print(np.shape(data2))
+    return data2
+
+
+def clean_data(data):
+    #print(np.shape(data))
+    data = reject_outliers(data,"Income in EUR")
+    data = reject_outliers(data,"Age")
+    data = reject_outliers(data,"Body Height [cm]")
+    data = reject_outliers(data,"Size of City")
+    data = reject_outliers(data,"Year of Record")
+    #print(np.shape(data))
+    
+    # too messy and unrestrained for me to work with rn
+    #data = data.drop('Profession', 1)
+    
     # Has no relation to data
     data = data.drop('Instance', 1)
     
@@ -109,22 +193,51 @@ def cleanFinalData(data):
     # drop nans
     #data = data.dropna()
     
+    data["Profession"] = data["Profession"].fillna("Unemployed")
+    
     # put error value for any remaining nas
     data = data.fillna(-1)
     
-    data["Country"] = pd.get_dummies(data["Country"])
-    ohe = OneHotEncoder(categories='auto')
+    #data["Country"] = pd.get_dummies(data["Country"])
+    
+    ohe = OneHotEncoder(categories='auto', handle_unknown = 'ignore')
     feature_arr = ohe.fit_transform(data[["Hair Color",
-        "Wears Glasses","University Degree","Country","Gender"]]).toarray()
+        "Wears Glasses","University Degree","Country","Gender","Profession"]]).toarray()
+        
+    #print(ohe.get_feature_names(["Hair Color",
+     #   "Wears Glasses","University Degree","Country","Gender"]))
+        
+    #  Hair Color_1.0' 'Hair Color_2.0' 'Hair Color_3.0' 'Hair Color_4.0'
+   # 'Wears Glasses_0.0' 'Wears Glasses_1.0' 'University Degree_1.0'
+    # 'University Degree_2.0' 'University Degree_3.0' 'University Degree_4.0'
+    # 'Country_0.0' 'Country_1.0' 'Gender_1.0' 'Gender_2.0' 'Gender_3.0']
+    
+    names = ohe.get_feature_names(["Hair Color",
+        "Wears Glasses","University Degree","Country","Gender","Profession"])
+    
+        
+    df2 = pd.DataFrame(feature_arr, columns = names)
+    #print(np.shape(df2))
+    #print(np.shape(data[["Year of Record","Age","Size of City","Body Height [cm]","Income in EUR"]]))
+    
 
-    data = np.append(feature_arr, 
-        data[["Year of Record","Age","Size of City","Body Height [cm]"]],axis = 1)
-    data = pd.DataFrame(data)
-    return data
+    #data2 = df2.join(data[["Year of Record","Age","Size of City","Body Height [cm]","Income in EUR"]])
+    data2 = pd.concat([df2.reset_index(drop=True),
+    data[["Year of Record","Age","Size of City","Body Height [cm]","Income in EUR"]].reset_index(drop=True)], axis=1)
+    # data = pd.DataFrame(data)
+    print(np.shape(data2))
+    return (data2,ohe)
 
+def reject_outliers(data,column):
+    u = np.mean(data[column])
+    s = np.std(data[column])
+    data_filtered = data[(data[column] > u-2*s) & (data[column] < u+2*s)]
+    return data_filtered
+    
 
 
 # In future I think plotting all the data might be unnescary but for a restrained problem such as this it's nice to visualise data
+# Just plotting code below this
    
 def plotGender(df):
     mapping = {"male": 1, "female": 2}
@@ -373,58 +486,6 @@ def plotAge(df):
     plt.xlabel('Age')
     plt.title('Predicting income')
     plt.show()
-
-def clean_data(data):
-    data = reject_outliers(data,"Income in EUR")
-    data = reject_outliers(data,"Age")
-    data = reject_outliers(data,"Body Height [cm]")
-    data = reject_outliers(data,"Size of City")
-    data = reject_outliers(data,"Year of Record")
-    
-    # too messy and unrestrained for me to work with rn
-    data = data.drop('Profession', 1)
-    # Has no relation to data
-    data = data.drop('Instance', 1)
-    
-    # Constrain Hair color
-    mapping = {"Black": 1, "Blond": 2, "Brown": 3}
-    data["Hair Color"] = data["Hair Color"].map(mapping)
-    # Four buckets
-    data["Hair Color"] = data["Hair Color"].fillna(4)
-    
-    # Constrain Degree
-    mapping = {"Bachelor": 1, "Master": 2, "No": 3}
-    data["University Degree"] = data["University Degree"].map(mapping)
-    # Four buckets
-    data["University Degree"] = data["University Degree"].fillna(4)
-    
-    # constrain Gender
-    mapping = {"male": 1, "female": 2}
-    data["Gender"] = data["Gender"].map(mapping)
-    # Four buckets
-    data["Gender"] = data["Gender"].fillna(3)
-    
-    # drop nans
-    #data = data.dropna()
-    
-    # put error value for any remaining nas
-    data = data.fillna(-1)
-    
-    data["Country"] = pd.get_dummies(data["Country"])
-    ohe = OneHotEncoder(categories='auto')
-    feature_arr = ohe.fit_transform(data[["Hair Color",
-        "Wears Glasses","University Degree","Country","Gender"]]).toarray()
-
-    data = np.append(feature_arr, 
-        data[["Year of Record","Age","Size of City","Body Height [cm]","Income in EUR"]],axis = 1)
-    data = pd.DataFrame(data)
-    return data
-
-def reject_outliers(data,column):
-    u = np.mean(data[column])
-    s = np.std(data[column])
-    data_filtered = data[(data[column] > u-2*s) & (data[column] < u+2*s)]
-    return data_filtered
     
 if __name__ == "__main__":
     main()
