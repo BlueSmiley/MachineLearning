@@ -10,7 +10,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import VarianceThreshold
+from sklearn.decomposition import PCA
 from math import sqrt
+from sklearn.pipeline import make_pipeline
 
 def main():
     input_file = "tcd ml 2019-20 income prediction training (with labels).csv"
@@ -35,26 +37,41 @@ def main():
     #msk = np.random.rand(len(df)) < 0.8
     train, test = train_test_split(df, test_size=0.2)
     
-    X = df.iloc[:,:-1]
-    y = df.iloc[:,-1]
+    #X = df.iloc[:,:-1]
+    #y = df.iloc[:,-1]
     scaler = StandardScaler()
-    X = scaler.fit_transform(X)
+    #X = scaler.fit_transform(X)
     #sel.fit_transform(X)
     #print(np.shape(X))
     
+    #train = reject_outliers(train,"Income in EUR")
+    #train = reject_outliers(train,"Age")
+    #train = reject_outliers(train,"Body Height [cm]")
+    #train = reject_outliers(train,"Size of City")
+    #train = reject_outliers(train,"Year of Record")
+    
+    
     train_y = train.iloc[:,-1]
-    train_X = scaler.transform(train.iloc[:,:-1])
+    train_X = scaler.fit_transform(train.iloc[:,:-1])
     test_y = test.iloc[:,-1]
     test_X = scaler.transform(test.iloc[:,:-1])
     print(np.shape(test_X))
     #print(np.shape(X))
     #print(np.shape(y))
 
-    regr = linear_model.LassoCV(cv=2)
+    regr = linear_model.LassoCV(cv = 3)
     
-
+    #Fitting the PCA algorithm with our Data
+    # pca = PCA().fit(train_X)#Plotting the Cumulative Summation of the Explained Variance
+    # plt.figure()
+    # plt.plot(np.cumsum(pca.explained_variance_ratio_))
+    # plt.xlabel('Number of Components')
+    # plt.ylabel('Variance (%)') #for each component
+    # plt.title('Pulsar Dataset Explained Variance')
+    # plt.show()
+    
     # Train the model using the training sets
-    regr.fit(X, y)
+    regr.fit(train_X, train_y)
     
     
     
@@ -68,8 +85,8 @@ def main():
         %  sqrt(mean_squared_error(test_y, pred)))
     # Explained variance score: 1 is perfect prediction
     print('Variance score: %.2f' % r2_score(test_y, pred))
-    print('Internal score: %.2f' % regr.score(X, y))
-    
+    # print('Internal score: %.2f' % regr.score(X, y))
+    print('Internal score: %.2f' % regr.score(test_X, test_y))
     
     actual_file = "tcd ml 2019-20 income prediction test (without labels).csv"
     finalData = pd.read_csv(actual_file, header = 0)
@@ -86,19 +103,6 @@ def main():
     output["Income"] = results
     #print(output)
     output.to_csv(output_file, index=False)
-
-    #plotGender(df)
-    
-    print('Internal score: %.2f' % regr.score(X, y))
-    # Plot outputs
-    # plt.scatter(X.iloc[:,-1], y,  color='black')
-    # plt.plot(X.iloc[:,-1], pred, color='blue', linewidth=3)
-    
-   # plt.xticks(())
-    #plt.yticks(())
-    
-    # plt.show()
-    
     
     
 def cleanFinalData(data, ohe):
@@ -112,13 +116,13 @@ def cleanFinalData(data, ohe):
     mapping = {"Black": 1, "Blond": 2, "Brown": 3}
     data["Hair Color"] = data["Hair Color"].map(mapping)
     # Four buckets
-    data["Hair Color"] = data["Hair Color"].fillna(4)
+    data["Hair Color"] = data["Hair Color"].fillna(data["Hair Color"].mode()[0])
     
     # Constrain Degree
     mapping = {"Bachelor": 1, "Master": 2, "No": 3}
     data["University Degree"] = data["University Degree"].map(mapping)
     # Four buckets
-    data["University Degree"] = data["University Degree"].fillna(4)
+    data["University Degree"] = data["University Degree"].fillna(3)
     
     # constrain Gender
     mapping = {"male": 1, "female": 2}
@@ -132,7 +136,7 @@ def cleanFinalData(data, ohe):
     #data = data.dropna()
     
     # put error value for any remaining nas
-    data = data.fillna(-1)
+    data = data.fillna(data.mean())
     
     #data["Country"] = pd.get_dummies(data["Country"])
     
@@ -159,11 +163,11 @@ def cleanFinalData(data, ohe):
 
 def clean_data(data):
     #print(np.shape(data))
-    data = reject_outliers(data,"Income in EUR")
-    data = reject_outliers(data,"Age")
-    data = reject_outliers(data,"Body Height [cm]")
-    data = reject_outliers(data,"Size of City")
-    data = reject_outliers(data,"Year of Record")
+    # data = reject_outliers(data,"Income in EUR")
+    # data = reject_outliers(data,"Age")
+    # data = reject_outliers(data,"Body Height [cm]")
+    # data = reject_outliers(data,"Size of City")
+    # data = reject_outliers(data,"Year of Record")
     #print(np.shape(data))
     
     # too messy and unrestrained for me to work with rn
@@ -196,7 +200,7 @@ def clean_data(data):
     data["Profession"] = data["Profession"].fillna("Unemployed")
     
     # put error value for any remaining nas
-    data = data.fillna(-1)
+    data = data.fillna(data.mean())
     
     #data["Country"] = pd.get_dummies(data["Country"])
     
