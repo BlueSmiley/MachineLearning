@@ -11,6 +11,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import RobustScaler
 from math import sqrt
 from sklearn.pipeline import make_pipeline
 
@@ -25,7 +26,7 @@ def main():
     #data = df.as_matrix()
 
     (df,ohe) = clean_data(df)
-    #sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
+    # sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
     
     #testing_file = "Testing.csv"
     #df.to_csv(testing_file, index=False)
@@ -41,7 +42,6 @@ def main():
     #y = df.iloc[:,-1]
     scaler = StandardScaler()
     #X = scaler.fit_transform(X)
-    #sel.fit_transform(X)
     #print(np.shape(X))
     
     #train = reject_outliers(train,"Income in EUR")
@@ -53,13 +53,15 @@ def main():
     
     train_y = train.iloc[:,-1]
     train_X = scaler.fit_transform(train.iloc[:,:-1])
+    # train_X = sel.fit_transform(train_X)
     test_y = test.iloc[:,-1]
     test_X = scaler.transform(test.iloc[:,:-1])
+    # test_X = sel.transform(test_X)
     print(np.shape(test_X))
     #print(np.shape(X))
     #print(np.shape(y))
 
-    regr = linear_model.LassoCV(cv = 3)
+    regr = linear_model.ElasticNetCV(cv = 3)
     
     #Fitting the PCA algorithm with our Data
     # pca = PCA().fit(train_X)#Plotting the Cumulative Summation of the Explained Variance
@@ -88,21 +90,21 @@ def main():
     # print('Internal score: %.2f' % regr.score(X, y))
     print('Internal score: %.2f' % regr.score(test_X, test_y))
     
-    actual_file = "tcd ml 2019-20 income prediction test (without labels).csv"
-    finalData = pd.read_csv(actual_file, header = 0)
-    finalData = cleanFinalData(finalData, ohe)
-    finalData = scaler.transform(finalData)
-    
-    #testing_file2 = "Testing2.csv"
-    #finalData.to_csv(testing_file2, index=False)
-    
-    results = regr.predict(finalData)
-    output_file = "tcd ml 2019-20 income prediction submission file.csv"
-    output =  pd.read_csv(output_file, header = 0, index_col=False)
-    #print(output)
-    output["Income"] = results
-    #print(output)
-    output.to_csv(output_file, index=False)
+    # actual_file = "tcd ml 2019-20 income prediction test (without labels).csv"
+    # finalData = pd.read_csv(actual_file, header = 0)
+    # finalData = cleanFinalData(finalData, ohe)
+    # finalData = scaler.transform(finalData)
+    # 
+    # #testing_file2 = "Testing2.csv"
+    # #finalData.to_csv(testing_file2, index=False)
+    # 
+    # results = regr.predict(finalData)
+    # output_file = "tcd ml 2019-20 income prediction submission file.csv"
+    # output =  pd.read_csv(output_file, header = 0, index_col=False)
+    # #print(output)
+    # output["Income"] = results
+    # #print(output)
+    # output.to_csv(output_file, index=False)
     
     
 def cleanFinalData(data, ohe):
@@ -112,31 +114,36 @@ def cleanFinalData(data, ohe):
     # Has no relation to data
     data = data.drop('Instance', 1)
     
+    
     # Constrain Hair color
     mapping = {"Black": 1, "Blond": 2, "Brown": 3}
     data["Hair Color"] = data["Hair Color"].map(mapping)
     # Four buckets
     data["Hair Color"] = data["Hair Color"].fillna(data["Hair Color"].mode()[0])
     
-    # Constrain Degree
-    mapping = {"Bachelor": 1, "Master": 2, "No": 3}
-    data["University Degree"] = data["University Degree"].map(mapping)
-    # Four buckets
-    data["University Degree"] = data["University Degree"].fillna(3)
-    
+    # # Constrain Degree
+    # mapping = {"Bachelor": 1, "Master": 2, "No": 3,"PhD": 4}
+    # data["University Degree"] = data["University Degree"].map(mapping)
+    # # Four buckets
+    # data["University Degree"] = data["University Degree"].fillna(3)
+    # 
     # constrain Gender
     mapping = {"male": 1, "female": 2}
     data["Gender"] = data["Gender"].map(mapping)
     # Four buckets
     data["Gender"] = data["Gender"].fillna(3)
-    
-    data["Profession"] = data["Profession"].fillna("Unemployed")
-    
+    # 
+    #data["Profession"] = data["Profession"].fillna(data["Profession"].mode()[0])
+
     # drop nans
     #data = data.dropna()
     
     # put error value for any remaining nas
+    # for column in df.columns:
+    #     df[column].fillna(df[column].mode()[0], inplace=True)
+    
     data = data.fillna(data.mean())
+    data = data.fillna(method="ffill")
     
     #data["Country"] = pd.get_dummies(data["Country"])
     
@@ -173,6 +180,7 @@ def clean_data(data):
     # too messy and unrestrained for me to work with rn
     #data = data.drop('Profession', 1)
     
+    
     # Has no relation to data
     data = data.drop('Instance', 1)
     
@@ -180,27 +188,28 @@ def clean_data(data):
     mapping = {"Black": 1, "Blond": 2, "Brown": 3}
     data["Hair Color"] = data["Hair Color"].map(mapping)
     # Four buckets
-    data["Hair Color"] = data["Hair Color"].fillna(4)
+    data["Hair Color"] = data["Hair Color"].fillna(data["Hair Color"].mode()[0])
     
-    # Constrain Degree
-    mapping = {"Bachelor": 1, "Master": 2, "No": 3}
-    data["University Degree"] = data["University Degree"].map(mapping)
-    # Four buckets
-    data["University Degree"] = data["University Degree"].fillna(4)
-    
-    # constrain Gender
+    # # Constrain Degree
+    # mapping = {"Bachelor": 1, "Master": 2, "No": 3,"PhD": 4}
+    # data["University Degree"] = data["University Degree"].map(mapping)
+    # # Four buckets
+    # data["University Degree"] = data["University Degree"].fillna(3)
+   #  
+     # constrain Gender
     mapping = {"male": 1, "female": 2}
     data["Gender"] = data["Gender"].map(mapping)
     # Four buckets
     data["Gender"] = data["Gender"].fillna(3)
-    
-    # drop nans
-    #data = data.dropna()
-    
-    data["Profession"] = data["Profession"].fillna("Unemployed")
+   # 
+   #  # drop nans
+   #  #data = data.dropna()
+   #  
+    #data["Profession"] = data["Profession"].fillna(data["Profession"].mode()[0])
     
     # put error value for any remaining nas
     data = data.fillna(data.mean())
+    data = data.fillna(method="ffill")
     
     #data["Country"] = pd.get_dummies(data["Country"])
     
@@ -228,6 +237,7 @@ def clean_data(data):
     #data2 = df2.join(data[["Year of Record","Age","Size of City","Body Height [cm]","Income in EUR"]])
     data2 = pd.concat([df2.reset_index(drop=True),
     data[["Year of Record","Age","Size of City","Body Height [cm]","Income in EUR"]].reset_index(drop=True)], axis=1)
+    
     # data = pd.DataFrame(data)
     print(np.shape(data2))
     return (data2,ohe)
