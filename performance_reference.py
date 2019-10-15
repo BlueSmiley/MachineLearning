@@ -110,10 +110,7 @@ def clean_train_data(data):
     """
     Initial training data processing
     """ 
-    data = process_features(data)
- 
-    ohe = OneHotEncoder(categories='auto', handle_unknown = 'ignore')
-       
+    data = process_features(data)    
     # continous version
     ohe = OneHotEncoder(categories='auto', handle_unknown = 'ignore')
     feature_arr = ohe.fit_transform(data[["University Degree","Country"]]).toarray()
