@@ -1,14 +1,11 @@
-import numpy as np
 import pandas as pd
-import os.path
-import matplotlib.pyplot as plt
 from sklearn import  linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from math import sqrt
 from sklearn.feature_selection import RFECV
-from category_encoders import TargetEncoder,LeaveOneOutEncoder
+from category_encoders import LeaveOneOutEncoder
 from sklearn import neighbors
 
 
@@ -28,15 +25,17 @@ def main():
     train_X = scaler.fit_transform(train.iloc[:,:-1])
     test_y = test.iloc[:,-1]
     test_X = test.iloc[:,:-1]
+    # Preprocess the test data using trained encoder
     test_X = clean_data(test_X, encoder)
     test_X = scaler.transform(test_X)
 
     regr = neighbors.KNeighborsRegressor(n_neighbors=10, weights= 'distance')
     lasso = linear_model.LassoCV(cv=5, verbose = 0)
     
-    # Never use this it, takes too long and requires meta transofrmer as well
+    # Use recursive feature selection with l2 norm of Lasso
     selector = RFECV(lasso, step=1, cv=3)
     
+    # Select features from training and test set
     train_X = selector.fit_transform(train_X, train_y)
     test_X = selector.transform(test_X)
     

@@ -194,8 +194,8 @@ def main():
     X = test["Country"]
     le = LabelEncoder()
     X = le.fit_transform(X) 
-    plt.scatter(X, test_y,  color=[[0,0,0,0.005]])
-    plt.scatter(X, pred, color=[[0,0,100,0.005]])
+    plt.scatter(X, test_y,  color='red', alpha = 0.005)
+    plt.scatter(X, pred, color='blue', alpha= 0.005)
     plt.ylabel('Income')
     plt.xlabel('Country')
     plt.title('Predicting income')
