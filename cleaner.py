@@ -32,6 +32,7 @@ from sklearn import ensemble
 from sklearn import neighbors
 from sklearn.tree import DecisionTreeRegressor
 import xgboost as xgb
+#from catboost import Pool, CatBoostRegressor
 
 
 
@@ -125,28 +126,34 @@ def main():
     
     print(np.shape(train_X))
     print(np.shape(test_X))
+    # 
+    # catboost = CatBoostRegressor(
+    #                       task_type="GPU",
+    #                        devices='0:1')
 
-    knn = neighbors.KNeighborsRegressor(n_neighbors=10, weights= 'distance')
+    regr = neighbors.KNeighborsRegressor(n_neighbors=10, weights= 'distance')
     lasso = linear_model.LassoCV(cv=5, verbose = 0)
     
     # model = linear_model.SGDRegressor()
     # # Grid search - this will take about 1 minute.
     # param_grid = {
-    #     'alpha': 10.0 ** -np.arange(1, 7),
-    #     'loss': ['squared_loss', 'huber', 'epsilon_insensitive'],
-    #     'penalty': ['l2', 'l1', 'elasticnet'],
-    #     'learning_rate': ['constant', 'optimal', 'invscaling'],
+    #      'alpha': 10.0 ** -np.arange(1, 7),
+    #      'loss': ['squared_loss', 'huber', 'epsilon_insensitive'],
+    #      'penalty': ['l2', 'l1', 'elasticnet'],
+    #      'learning_rate': ['constant', 'optimal', 'invscaling'],
     # }
-    # regr = GridSearchCV(model, param_grid)
+    # sgd = GridSearchCV(model, param_grid)
     # regr = DecisionTreeRegressor()
+    
     # Good performance
-    # regr = ExtraTreesRegressor()
-    regr = linear_model.MultiTaskElasticNetCV(cv=5)
-    # regr = linear_model.LassoLarsCV(cv=5)
+    # trees = ExtraTreesRegressor()
+    
+    # regr = linear_model.MultiTaskElasticNetCV(cv=5)
+    #lasso = linear_model.LassoLarsCV(cv=5)
     # regr = linear_model.ElasticNetCV(cv=5)
     #regr = ensemble.RandomForestRegressor(n_estimators=1000)
     # regr = ensemble.GradientBoostingRegressor(n_estimators=1000, subsample=0.5)
-    #regr = ensemble.VotingRegressor(estimators=[('knn', knn), ('lr', lasso)])
+    # regr = ensemble.VotingRegressor(estimators=[('knn', knn), ('lr', sgd)])
     # regr = linear_model.SGDRegressor(alpha =0.0001,average=False,early_stopping=False,
     #     epsilon=0.1,eta0=0.0001,fit_intercept=True,l1_ratio=0.15,learning_rate='invscaling',
     #     loss='squared_loss',max_iter=1000,n_iter_no_change=5,penalty='l2',power_t=0.25,
@@ -157,7 +164,7 @@ def main():
     #             max_depth = 5, alpha = 10, n_estimators = 10)
     # regr = svm.SVR(gamma='scale')
     # Never use this it, takes too long and requires meta transofrmer as well
-    # selector = RFECV(regr, step=1, cv=3)
+    selector = RFECV(lasso, step=1, cv=3)
     
     # This works ok but requires LassoCV basically
     #selector = SelectFromModel(regr)
@@ -171,8 +178,8 @@ def main():
     # Performed ok
     #selector = SelectKBest(f_regression,k = 150)
     
-    # train_X = selector.fit_transform(train_X, train_y)
-    # test_X = selector.transform(test_X)
+    train_X = selector.fit_transform(train_X, train_y)
+    test_X = selector.transform(test_X)
 
     print(np.shape(train_X))
     print(np.shape(test_X))
@@ -184,6 +191,17 @@ def main():
     
     # Make predictions using the testing set
     pred = regr.predict(test_X)
+    X = test["Country"]
+    le = LabelEncoder()
+    X = le.fit_transform(X) 
+    plt.scatter(X, test_y,  color=[[0,0,0,0.005]])
+    plt.scatter(X, pred, color=[[0,0,100,0.005]])
+    plt.ylabel('Income')
+    plt.xlabel('Country')
+    plt.title('Predicting income')
+    plt.show()
+    # catboost.fit(train_X, train_y)
+    # catpreds = catboost.predict(test_X)
     
     # The coefficients
     # print('Coefficients: \n', regr.coef_)
@@ -193,7 +211,7 @@ def main():
     # Explained variance score: 1 is perfect prediction
     print('Variance score: %.2f' % r2_score(test_y, pred))
     # print('Internal score: %.2f' % regr.score(X, y))
-    print('Internal score: %.2f' % regr.score(test_X, test_y))
+    #print('Internal score: %.2f' % regr.score(test_X, test_y))
     
     # The rest essentially calculates the answers for the actual thing
     # actual_file = "tcd ml 2019-20 income prediction test (without labels).csv"
@@ -239,9 +257,10 @@ def clean_data(data, ohe,rep_points):
     #data = new_column
     # data = data.join(dist_from_clusters)
     # 
+    # dists = dist_from_origin(data)
     data = data.drop('Y',1)
     data = data.drop('X',1)
-    
+    # data = data.join(dists)
     #data2 = dist_from_clusters
     
     # To discretise features
@@ -302,19 +321,20 @@ def clean_train_data(data):
     # 
     # #train_X = train_X.join(new_column)
     # 
-    # # train_X = dist_from_origin(train_X)
-    # 
-    # #print(train_X)
-    # # train_X = train_X[["X","Y","Z"]]
-    # # train_X = train_X.reset_index(drop=True)
-    # 
-    # new_column = dbscan_predict(dbscan,train_X[["X","Y"]])
-    # new_column = pd.DataFrame(new_column, columns = ["Cluster"])
+    # dists = dist_from_origin(train_X)
+    # # 
+    # # #print(train_X)
+    # # # train_X = train_X[["X","Y","Z"]]
+    # # # train_X = train_X.reset_index(drop=True)
+    # # 
+    # # new_column = dbscan_predict(dbscan,train_X[["X","Y"]])
+    # # new_column = pd.DataFrame(new_column, columns = ["Cluster"])
     train_X = train_X.drop("X",1)
     train_X = train_X.drop("Y",1)
-    # train_X = train_X.join(new_column)
-    #train_X = new_column
-    #train_X = train_X.join(dist_from_clusters)
+    # # train_X = train_X.join(new_column)
+    # #train_X = new_column
+    # #train_X = train_X.join(dist_from_clusters)
+    # train_X = train_X.join(dists)
     #print(train_X)
     #train_X = dist_from_clusters
     
