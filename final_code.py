@@ -30,10 +30,10 @@ def main():
     test_X = scaler.transform(test_X)
 
     regr = neighbors.KNeighborsRegressor(n_neighbors=10, weights= 'distance')
-    lasso = linear_model.LassoCV(cv=5, verbose = 0)
+    lasso = linear_model.LassoCV(cv=3, verbose = 0)
     
     # Use recursive feature selection with l2 norm of Lasso
-    selector = RFECV(lasso, step=1, cv=3)
+    selector = RFECV(lasso, step=1, cv=5)
     
     # Select features from training and test set
     train_X = selector.fit_transform(train_X, train_y)
@@ -47,6 +47,7 @@ def main():
     # Make predictions using the testing set
     pred = regr.predict(test_X)
     
+    
     # The coefficients
     # print('Coefficients: \n', regr.coef_)
     # The mean squared error
@@ -54,6 +55,15 @@ def main():
         %  sqrt(mean_squared_error(test_y, pred)))
     # Explained variance score: 1 is perfect prediction
     print('Variance score: %.2f' % r2_score(test_y, pred))
+    
+    # Now feed entire data into nearest neibhour model
+    (df,encoder) = clean_train_data(df)
+    y = df.iloc[:,-1]
+    X = df.iloc[:,:-1]
+    X = scaler.fit_transform(X)
+    X = selector.fit_transform(X, y)
+    regr.fit(X,y)
+    
     
     # The rest essentially calculates the answers for the actual thing
     actual_file = "tcd ml 2019-20 income prediction test (without labels).csv"
